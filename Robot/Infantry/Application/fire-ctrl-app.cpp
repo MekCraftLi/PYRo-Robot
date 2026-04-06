@@ -38,7 +38,7 @@ volatile struct SpeedDebugOzone {
     float comp_integration;   // 补偿增量
     uint8_t physical_shot;    // 物理发弹脉冲
 } g_speed_debug;
-
+debug_trigger_t debug_trigger;
 /* -------- 应用属性 -------------------------------------------------------------------------------------------------- */
 
 #define APPLICATION_ENABLE     true
@@ -89,15 +89,22 @@ void FireCtrlApp::run() {
     // ── 2d. 物理发弹检测 (编码器跨越一发跨度 → 注册热量) ──
     const int32_t ECD_PER_BULLET = 8192 * 36 / 8; // M2006 单发编码器跨度 (36864)
 
-    int32_t currentContinuousEcd = _ctx.fdb.triggerEcd + _ctx.fdb.triggerRound * 8192;
-    static int32_t lastShotContinuousEcd = currentContinuousEcd;
+    _ctx.rawTriggerEcd = _ctx.fdb.triggerEcd + _ctx.fdb.triggerRound * 8192;
+    _ctx.currentTriggerEcd = (_ctx.rawTriggerEcd - _ctx.triggerOffset + 8192 * 36) % (8192 * 36); // 当前编码器位置 (连续值 - 校准偏移, 模拟 36 周)
+    static int32_t lastShotContinuousEcd;
+    lastShotContinuousEcd = _ctx.rawTriggerEcd;
+
+    debug_trigger.currentTrigger = _ctx.currentTriggerEcd;
+    debug_trigger.targetTrigger = _ctx.targetTriggerEcd;
+    debug_trigger.state = (uint8_t)_ctx.state;
+    debug_trigger.offset = _ctx.triggerOffset;
 
     // 防抖: 差距过大 (如刚开机 / 校准后) → 直接对齐
-    if (std::abs(currentContinuousEcd - lastShotContinuousEcd) > ECD_PER_BULLET * 10) {
-        lastShotContinuousEcd = currentContinuousEcd;
-    }
+    // if (std::abs(currentContinuousEcd - lastShotContinuousEcd) > ECD_PER_BULLET * 10) {
+    //     lastShotContinuousEcd = currentContinuousEcd;
+    // }
 
-    if (currentContinuousEcd - lastShotContinuousEcd >= ECD_PER_BULLET) {
+    if (_ctx.rawTriggerEcd - lastShotContinuousEcd >= ECD_PER_BULLET) {
         _ctx.heatController.recordBulletShot(nowMs);
         lastShotContinuousEcd += ECD_PER_BULLET;
         g_heat_debug.physical_shot  = 50;
@@ -191,9 +198,8 @@ void FireCtrlApp::calculateCurrents(BoosterOutput& out) {
         // 位置外环 → 速度内环 (单发 / 就绪锁位)
         float targetTriggerAngle = (float)(_ctx.targetTriggerEcd) / (float)(8192 * 36) * 2 * M_PI;
 
-        int32_t ecd = _ctx.fdb.triggerEcd + _ctx.fdb.triggerRound * 8192 - _ctx.triggerOffset;
-        while (ecd < 0) ecd += 8192 * 36;
-        float realTriggerAngle = (float)(ecd) / (float)(8192 * 36) * 2 * M_PI;
+
+        float realTriggerAngle = (float)(_ctx.currentTriggerEcd) / (float)(8192 * 36) * 2 * M_PI;
 
         float err = targetTriggerAngle - realTriggerAngle;
         while (err >  M_PI) err -= 2.0f * M_PI;

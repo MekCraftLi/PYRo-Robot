@@ -13,10 +13,10 @@
  *   - FRIC_TOGGLE / EMERGENCY_STOP -> Passive
  *   - BURST_STOP / burstShot==0 -> Ready
  *   - 热量不足 -> Ready
- *   - 堵转超时 2000 ticks -> CaliReverse (记录来源为 SafeBurst)
+ *   - 堵转超时 2000 ms -> CaliReverse (记录来源为 SafeBurst)
  *
  * Context modifications:
- *   - Writes: isCalibrated, useTriggerSpeedLoopOnly, blockTimer,
+ *   - Writes: isCalibrated, useTriggerSpeedLoopOnly, blockStartTick,
  *             targetTriggerEcd, jamSourceState, state
  */
 
@@ -26,7 +26,7 @@ void FireCtrlApp::StateSafeBurst::enter(FireCtrlCtx* ctx) {
     // --- 初始化 ---
     ctx->isCalibrated            = false;
     ctx->useTriggerSpeedLoopOnly = false;
-    ctx->blockTimer              = 0;
+    ctx->blockStartTick          = 0;
 
     // --- 锁定前方最近槽位为首发目标 ---
     int32_t currentEcd   = ctx->fdb.triggerEcd + ctx->fdb.triggerRound * 8192 - ctx->triggerOffset;
@@ -71,13 +71,14 @@ void FireCtrlApp::StateSafeBurst::execute(FireCtrlCtx* ctx) {
     while (err < -(float)M_PI)  err += 2.0f * (float)M_PI;
 
     if (std::abs(err) > (float)M_PI / 16.0f && std::abs(ctx->fdb.trigger.vel) < 10.0f) {
-        ctx->blockTimer++;
-        if (ctx->blockTimer > 2000) {
+        if (ctx->blockStartTick == 0)
+            ctx->blockStartTick = xTaskGetTickCount();
+        else if (xTaskGetTickCount() - ctx->blockStartTick >= pdMS_TO_TICKS(2000)) {
             ctx->jamSourceState = FireState::SafeBurst;
             request_switch(&instance()._stateCaliReverse);
             return;
         }
     } else {
-        ctx->blockTimer = 0;
+        ctx->blockStartTick = 0;
     }
 }

@@ -16,10 +16,10 @@
  * Exit condition (transitions OUT):
  *   - BURST_STOP / SINGLE_FIRE / burstShot==0 -> Ready
  *   - FRIC_TOGGLE / EMERGENCY_STOP -> Passive
- *   - 堵转超时 2000 ticks -> CaliReverse (记录来源为 BurstFire)
+ *   - 堵转超时 2000 ms -> CaliReverse (记录来源为 BurstFire)
  *
  * Context modifications:
- *   - Writes: isCalibrated, blockTimer, useTriggerSpeedLoopOnly,
+ *   - Writes: isCalibrated, blockStartTick, useTriggerSpeedLoopOnly,
  *             targetTriggerSpeed, targetTriggerEcd, jamSourceState, state
  *   - Clears: _triggerSpdPid (in exit)
  */
@@ -30,7 +30,7 @@
 void FireCtrlApp::StateBurstFire::enter(FireCtrlCtx* ctx) {
     // --- 初始化 ---
     ctx->isCalibrated            = false;
-    ctx->blockTimer              = 0;
+    ctx->blockStartTick          = 0;
     ctx->useTriggerSpeedLoopOnly = true;
     ctx->state                   = FireState::BurstFire;
 }
@@ -58,14 +58,15 @@ void FireCtrlApp::StateBurstFire::execute(FireCtrlCtx* ctx) {
     // --- 堵转检测: 目标速度大但实际极低 ---
     float speedErr = std::abs(ctx->targetTriggerSpeed) - std::abs(ctx->fdb.trigger.vel);
     if (speedErr > 50.0f && std::abs(ctx->fdb.trigger.vel) < 10.0f) {
-        ctx->blockTimer++;
-        if (ctx->blockTimer > 2000) {
+        if (ctx->blockStartTick == 0)
+            ctx->blockStartTick = xTaskGetTickCount();
+        else if (xTaskGetTickCount() - ctx->blockStartTick >= pdMS_TO_TICKS(2000)) {
             ctx->jamSourceState = FireState::BurstFire;
             request_switch(&instance()._stateCaliReverse);
             return;
         }
     } else {
-        ctx->blockTimer = 0;
+        ctx->blockStartTick = 0;
     }
 }
 

@@ -171,6 +171,9 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
+#ifndef pdTICKS_TO_MS
+    #define pdTICKS_TO_MS( xTicks )    ( ( TickType_t ) ( ( ( TickType_t ) ( xTicks ) * ( TickType_t ) 1000U ) / ( TickType_t ) configTICK_RATE_HZ ) )
+#endif
 /* USER CODE END Defines */
 
 #include "../../../../../../../../third_party/SystemView/SEGGER_SYSVIEW_FreeRTOS.h"

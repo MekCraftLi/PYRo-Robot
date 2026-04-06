@@ -76,7 +76,7 @@ constexpr float FRIC_ADJUST_K                                     = 0.88f;
 constexpr float FRIC_RADIUS                                       = 0.03f;
 
 // 发射速度 (发/秒)
-constexpr float SHOOT_SPEED                                       = 25.0f;
+constexpr float SHOOT_SPEED                                       = 20.0f;
 
 // 拨弹盘速度
 constexpr float TRIGGER_SPEED                                     = SHOOT_SPEED / 8 * 2 * M_PI * 36;

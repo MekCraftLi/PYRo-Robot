@@ -34,6 +34,9 @@
 
 #ifdef __cplusplus
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "./System/Thread/application-base.h"
 #include "Algorithm/Shoot/speed-compensater.h"
 #include "Algorithm/Shoot/heat-controller.h"
@@ -43,6 +46,13 @@
 #include "pyro_core_fsm.h"
 
 /*-------- class ------------------------------------------------------------------------------------------------------*/
+
+struct debug_trigger_t{
+    int32_t currentTrigger;
+    int32_t targetTrigger;
+    uint8_t state;
+    uint32_t offset;
+};
 
 class FireCtrlApp final : public PeriodicApp, public Singleton<FireCtrlApp> {
   public:
@@ -89,10 +99,13 @@ class FireCtrlApp final : public PeriodicApp, public Singleton<FireCtrlApp> {
         bool useTriggerSpeedLoopOnly;       // true=绕过位置环, 仅速度环 (连发/校准)
 
         // --- 校准 & 堵转 ---
-        bool isCalibrated   = false;        // 是否已完成拨弹盘校准
-        uint32_t stateTimer = 0;            // 通用状态内定时器
-        uint32_t blockTimer = 0;            // 堵转检测累加器
+        int32_t currentTriggerEcd;
+        uint32_t rawTriggerEcd;
+        bool isCalibrated      = false;        // 是否已完成拨弹盘校准
+        TickType_t stateStartTick = 0;         // 状态进入时刻 (FreeRTOS tick)
+        TickType_t blockStartTick = 0;         // 堵转检测起始时刻 (0=未堵转)
         FireState jamSourceState = FireState::Passive; // 堵转来源状态 (校准后恢复)
+        FireState targetStateAfterCali = FireState::Ready; // 校准完成后目标状态 (由 CaliReverse 决定)
     };
 
     // -------------------------------------------

@@ -27,8 +27,6 @@ void FireCtrlApp::StateReady::enter(FireCtrlCtx* ctx) {
     // --- 将编码器四舍五入对齐到最近的拨弹槽位 ---
     int32_t currentEcd   = ctx->fdb.triggerEcd + ctx->fdb.triggerRound * 8192 - ctx->triggerOffset;
     int32_t ecdPerBullet = 8192 * 36 / 8; // M2006 单发跨度 = 36864
-    ctx->targetTriggerEcd = ((currentEcd + ecdPerBullet / 2) / ecdPerBullet) * ecdPerBullet;
-
     ctx->state = FireState::Ready;
 }
 

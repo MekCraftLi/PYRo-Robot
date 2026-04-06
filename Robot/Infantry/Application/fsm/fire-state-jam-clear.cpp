@@ -13,15 +13,14 @@
 constexpr float ANGLE_PER_BULLET = 45.0f; // 拨弹盘单发角度 (8发/圈)
 
 void FireCtrlApp::StateJamClear::enter(FireCtrlCtx* ctx) {
-    ctx->stateTimer              = 0;
+    ctx->stateStartTick          = xTaskGetTickCount();
     ctx->useTriggerSpeedLoopOnly = true;
     ctx->state                   = FireState::JamClear;
 }
 
 void FireCtrlApp::StateJamClear::execute(FireCtrlCtx* ctx) {
     ctx->targetTriggerSpeed = -300.0f; // 强行反转退弹
-    ctx->stateTimer++;
-    if (ctx->stateTimer > 150) { // 反转 150ms
+    if (xTaskGetTickCount() - ctx->stateStartTick >= pdMS_TO_TICKS(150)) {
         request_switch(&instance()._stateReady);
     }
 }
