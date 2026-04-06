@@ -1,3 +1,6 @@
 [submodule "PYRo"]
 	path = PYRo
 	url = https://github.com/PeiYangRobot/PYRo-uCtrl-Unity
+[submodule "third_party/TinyUSB"]
+	path = third_party/TinyUSB
+	url = https://github.com/hathach/tinyusb

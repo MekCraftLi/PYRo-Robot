@@ -1717,6 +1717,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 mtCOVERAGE_TEST_MARKER();
             }
 
+            traceMOVED_TASK_TO_SUSPENDED_LIST(pxTCB);
             vListInsertEnd( &xSuspendedTaskList, &( pxTCB->xStateListItem ) );
 
             #if ( configUSE_TASK_NOTIFICATIONS == 1 )
@@ -3770,6 +3771,20 @@ static void prvCheckTasksWaitingTermination( void )
 }
 /*-----------------------------------------------------------*/
 
+#if ( INCLUDE_pxTaskGetStackStart == 1 )
+    uint8_t* pxTaskGetStackStart( TaskHandle_t xTask)
+    {
+        TCB_t *pxTCB;
+        UBaseType_t uxReturn;
+        (void)uxReturn;
+
+        pxTCB = prvGetTCBFromHandle( xTask );
+        return ( uint8_t * ) pxTCB->pxStack;
+    }
+
+#endif /* INCLUDE_pxTaskGetStackStart */
+/*-----------------------------------------------------------*/
+
 #if ( configUSE_TRACE_FACILITY == 1 )
 
     void vTaskGetInfo( TaskHandle_t xTask,
@@ -5435,12 +5450,14 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
             {
                 /* Wake time has overflowed.  Place this item in the overflow
                  * list. */
+                traceMOVED_TASK_TO_OVERFLOW_DELAYED_LIST();
                 vListInsert( pxOverflowDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
             }
             else
             {
                 /* The wake time has not overflowed, so the current block list
                  * is used. */
+                traceMOVED_TASK_TO_DELAYED_LIST();
                 vListInsert( pxDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
 
                 /* If the task entering the blocked state was placed at the
@@ -5470,11 +5487,13 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
         if( xTimeToWake < xConstTickCount )
         {
             /* Wake time has overflowed.  Place this item in the overflow list. */
+            traceMOVED_TASK_TO_OVERFLOW_DELAYED_LIST();
             vListInsert( pxOverflowDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
         }
         else
         {
             /* The wake time has not overflowed, so the current block list is used. */
+            traceMOVED_TASK_TO_DELAYED_LIST();
             vListInsert( pxDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
 
             /* If the task entering the blocked state was placed at the head of the

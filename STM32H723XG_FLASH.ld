@@ -244,6 +244,8 @@ SECTIONS
   {
     . = ALIGN(4);
     KEEP(*(.dma_heap))
+    *(.dma_pool)
+    *(.dma_pool*)
     . = ALIGN(4);
   } >RAM_D2
 

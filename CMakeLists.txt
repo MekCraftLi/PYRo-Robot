@@ -61,29 +61,23 @@ target_include_directories(dsppp_lib INTERFACE
 # 先创建可执行文件目标，再进入子目录（因为子目录中的配置需要操作这个目标）
 add_executable(${CMAKE_PROJECT_NAME})
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CubeMX/cmake/stm32cubemx)
-add_subdirectory(PYRo)
+# PYRo submodule has no CMakeLists.txt
+add_subdirectory(PYRo-Wrapper)
 
-
-# if (ROBOT_ID EQUAL HERO_ID)
+# ── Robot & board selection ──
+if (ROBOT_ID EQUAL HERO_ID)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CubeMX/cmake/stm32cubemx)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/hero)
-# elseif (ROBOT_ID EQUAL SUB_HERO_ID)
-#     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/sub_hero)
-# elseif(ROBOT_ID EQUAL INFANTRY2_ID)
-#     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/infantry2)
-# elseif(ROBOT_ID EQUAL SENTRY_ID)
-#     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/sentry)
-# endif ()
-
-
-target_link_libraries(${CMAKE_PROJECT_NAME}
-    PYRo
-    stm32cubemx
-    CMSISDSP
-    dsppp_lib
-    Hero
-
-)
+    target_link_libraries(${CMAKE_PROJECT_NAME}
+        PYRo stm32cubemx CMSISDSP dsppp_lib Hero
+    )
+elseif (ROBOT_ID EQUAL INFANTRY1_ID OR ROBOT_ID EQUAL INFANTRY2_ID)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CubeMX/cmake/stm32cubemx)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Robot/Infantry)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:SystemView>)
+    target_link_libraries(${CMAKE_PROJECT_NAME}
+        PYRo stm32cubemx CMSISDSP dsppp_lib Infantry
+    )
+endif()
 
 add_dependencies(echo_robot_id ${CMAKE_PROJECT_NAME})
-

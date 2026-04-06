@@ -26,7 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "../third_party/SystemView/SEGGER_SYSVIEW.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -136,7 +136,11 @@ void vApplicationDaemonTaskStartupHook(void)
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
+  // 1. 初始化硬件时钟（SystemView 需要知道 CPU 频率来计算时间戳）
+  SEGGER_SYSVIEW_Conf();
 
+  // 2. 建议在启动调度器前打一个标记
+  SEGGER_SYSVIEW_Print("System Initialized. Starting Scheduler...");
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */

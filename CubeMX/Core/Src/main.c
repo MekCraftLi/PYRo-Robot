@@ -64,6 +64,7 @@ void MX_FREERTOS_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 extern void start_mission_planer_task(void const *argument);
+extern void ApplicationEntry(void);
 /* USER CODE END 0 */
 
 /**
@@ -110,7 +111,11 @@ int main(void)
   MX_UART7_Init();
   MX_USART10_UART_Init();
   /* USER CODE BEGIN 2 */
+#if ROBOT_ID == HERO_ID
     start_mission_planer_task(NULL);
+#else
+    ApplicationEntry();
+#endif
   /* USER CODE END 2 */
 
   /* Init scheduler */

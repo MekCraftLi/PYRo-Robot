@@ -241,27 +241,14 @@ set(SUB_LINE_DIV "${DECOR_COLOR}${SUB_LINE_STR}${RESET_ALL}")
 # -----------------------------------------------------------------------------
 # 如果配置无效，在 Configure 阶段就打印这个面板，然后报错
 if(CONFIG_VALID STREQUAL "FALSE")
-#    message(STATUS "")
-#    message(STATUS "${LINE_DIV}")
-#    message(STATUS "")
-#    message(STATUS "${LINE_TITLE}")
-#    message(STATUS "")
-#    message(STATUS "${SUB_LINE_DIV}")
-#    message(STATUS "")
-#    message(STATUS "${LINE_ROBOT}")
-#    message(STATUS "")
-#    message(STATUS "${LINE_CONFIG}")
-#    message(STATUS "${LINE_DIV}")
-#    # 这里不显示图片，因为还没配置好
-#    message(STATUS "${LINE_DIV}")
-#    message(STATUS "")
-#    message(STATUS "${LINE_STATUS}") # 显示红色的 ERROR
-#    message(STATUS "")
-#    message(STATUS "${LINE_DIV}")
-#    message(STATUS "")
-    set(ART_DIR "${WARNING_DIR}")
-    # 终止配置
-
+    message(FATAL_ERROR
+        "\n${LINE_DIV}\n\n"
+        "${LINE_TITLE}\n\n"
+        "${LINE_STATUS}\n\n"
+        "${LINE_DIV}\n\n"
+        "  Usage: cmake -DROBOT_ID=<id> ..\n"
+        "  Available IDs: HERO=1, INFANTRY1=3, INFANTRY2=4, SENTRY=5\n"
+    )
 endif()
 
 # -----------------------------------------------------------------------------
