@@ -25,7 +25,7 @@
 void FireCtrlApp::StateCaliForward::enter(FireCtrlCtx* ctx) {
     // --- 切回位置环, 目标为零点 ---
     ctx->useTriggerSpeedLoopOnly = false;
-    ctx->targetTriggerEcd        = 0;
+    ctx->targetTriggerEcd        = 5000;
     ctx->state                   = FireState::CaliForward;
 }
 
