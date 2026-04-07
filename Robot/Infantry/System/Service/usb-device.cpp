@@ -67,7 +67,7 @@
 
 /* ------- application attribute -------------------------------------------------------------------------------------*/
 
-#define APPLICATION_ENABLE     false
+#define APPLICATION_ENABLE     true
 
 #define APPLICATION_NAME       "UsbDevice"
 
@@ -112,5 +112,4 @@ void UsbDeviceApp::init() {
 void UsbDeviceApp::run() { // 1. 必须一直调用 tud_task() 来处理底层的枚举和端点事件
 
     tud_task();
-    vTaskDelay(1);
 }

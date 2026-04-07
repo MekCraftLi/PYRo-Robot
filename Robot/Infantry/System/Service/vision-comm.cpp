@@ -35,12 +35,16 @@
 /* I. header */
 
 #include "vision-comm.h"
+#include <cstdio>
 
 #include "Config/Gimbal/hw-config.h"
 #include "System/DataHub/blackboard.h"
 #include "class/cdc/cdc_device.h"
 #include "pyro_dwt_drv.h"
+#include "referee-data-hub.h"
+#include "referee-protocol.h"
 #include "tools/crc.h"
+
 
 /* II. other application */
 
@@ -67,11 +71,11 @@
 
 // 强制将缓冲区放入 DMA 可访问且非 Cache 区域
 [[maybe_unused]] __attribute__((section(".dma_pool"))) static uint8_t dmaRxBuf[VisionCommSrvc::RX_BUFFER_SIZE];
-__attribute__((section(".dma_pool"))) static uint8_t dmaTxBuf[sizeof(VisionTxFrame) + 1];
+uint8_t dmaTxBuf[0x100];
 
 /* ------- application attribute -------------------------------------------------------------------------------------*/
 
-#define APPLICATION_ENABLE     false
+#define APPLICATION_ENABLE     true
 
 #define APPLICATION_NAME       "VisionComm"
 
@@ -185,8 +189,8 @@ void VisionCommSrvc::sendTxFrame() {
     telem.currentPitch = -state.pitch;
     telem.currentYaw   = state.yaw;
     telem.autoAimMode  = 1;
-    telem.enemyColor = comm.msg.robotId > 100;
-    telem.initialSpeed = comm.msg.initialSpeedX100 / 100;
+    telem.enemyColor   = comm.msg.robotId > 100;
+    telem.initialSpeed = static_cast<float>(comm.msg.initialSpeedX100) / 100.0f;
 
 
 
@@ -204,7 +208,14 @@ void VisionCommSrvc::sendTxFrame() {
     if (tud_cdc_write_available() < sizeof(VisionTxFrame) + 1) {
         tud_cdc_write_clear();
     }
-    tud_cdc_write(dmaTxBuf, sizeof(dmaTxBuf));
+
+    RMShootData shootData{};
+
+    RefereeDataHub::instance().shootData.read(shootData);
+
+    uint16_t len = snprintf(reinterpret_cast<char*>(dmaTxBuf), sizeof(dmaTxBuf), "从裁判系统中获得初速:%dmm/s\n",
+                            shootData.initialSpeed * 1000);
+    tud_cdc_write(dmaTxBuf, len);
     tud_cdc_write_flush();
 
     //

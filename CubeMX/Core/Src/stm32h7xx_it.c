@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "../third_party/SystemView/SEGGER_SYSVIEW.h"
+#include "device/usbd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -156,7 +157,6 @@ void UsageFault_Handler(void)
     /* USER CODE BEGIN W1_UsageFault_IRQn 0 */
     /* USER CODE END W1_UsageFault_IRQn 0 */
   }
-  SEGGER_SYSVIEW_RecordExitISR();
 }
 
 /**
@@ -425,9 +425,13 @@ void OTG_HS_IRQHandler(void)
 {
   /* USER CODE BEGIN OTG_HS_IRQn 0 */
   SEGGER_SYSVIEW_RecordEnterISR();
-  /* USER CODE END OTG_HS_IRQn 0 */
-  HAL_PCD_IRQHandler(&hpcd_USB_OTG_HS);
-  /* USER CODE BEGIN OTG_HS_IRQn 1 */
+    tud_int_handler(1);
+#if 0
+
+    /* USER CODE END OTG_HS_IRQn 0 */
+    HAL_PCD_IRQHandler(&hpcd_USB_OTG_HS);
+    /* USER CODE BEGIN OTG_HS_IRQn 1 */
+#endif
   SEGGER_SYSVIEW_RecordExitISR();
   /* USER CODE END OTG_HS_IRQn 1 */
 }

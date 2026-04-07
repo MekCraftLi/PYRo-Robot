@@ -17,6 +17,7 @@
 #include "Config/Gimbal/hw-config.h"
 #include "System/DataHub/blackboard.h"
 #include "pyro_dwt_drv.h"
+#include "referee-data-hub.h"
 
 /* -------- Ozone 调试探针 (仅用于实时波形观测) -------------------------------------------------- */
 
@@ -72,6 +73,9 @@ void FireCtrlApp::run() {
     Blackboard::instance().shootCmd.read(_ctx.cmd);
     Blackboard::instance().boosterState.read(_ctx.fdb);
     Blackboard::instance().c2gComm.read(c2gData);
+    RMShootData shootData{};
+
+    RefereeDataHub::instance().shootData.read(shootData);
 
     uint32_t nowMs = xTaskGetTickCount();
 
@@ -81,7 +85,7 @@ void FireCtrlApp::run() {
         c2gData.msg.coolingRate, nowMs);
 
     // ── 2b. 喂弹速补偿器 ──
-    _ctx.speedCompensator.update((float)c2gData.msg.initialSpeedX100 / 100.0f);
+    _ctx.speedCompensator.update(shootData.initialSpeed);
 
     // ── 2c. 本地冷却推演 ──
     _ctx.heatController.tickCooling(dt);

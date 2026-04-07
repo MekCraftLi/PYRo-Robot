@@ -85,10 +85,10 @@ elseif(INFANTRY_BOARD STREQUAL "GIMBAL")
         ${_S}/Board-Support-Pack/GamePad/bluetooth-gamepad.cpp
         ${_S}/Board-Support-Pack/USB/usb-descriptors.c
         ${_S}/Board-Support-Pack/USB/dev-usb.cpp
-        ${_S}/Board-Support-Pack/USB/class-cdc.cpp
         ${_S}/Board-Support-Pack/VideoLink/video-link-remote.cpp
         ${_S}/System/Service/vision-comm.cpp
         ${_S}/System/Service/usb-device.cpp
+        ${_S}/System/Service/referee.cpp
     )
 
     # TinyUSB sources (GIMBAL only)
