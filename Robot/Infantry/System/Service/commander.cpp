@@ -164,8 +164,6 @@ void CommanderSrvc::init() {
 
     // ── 2. 初始化 UART DMA 接收 ──
 
-    pyro::bsp_uart::init_all();
-
 #ifdef GIMBAL
 #if REMOTE_DEVICE == REMOTE_DR16
     pyro::bsp_uart::get_uart5().add_rx_event_callback(
@@ -174,6 +172,9 @@ void CommanderSrvc::init() {
                 memcpy(&_dr16Data, p, size);
                 RemoteDR16::instance().onDataReceived();
             }
+            // Restart DMA reception for the next incoming packet.
+            // 为下一个传入的数据包重新启动 DMA 接收。
+            pyro::bsp_uart::get_uart5().enable_rx_dma();
             return true;
         },
         reinterpret_cast<uint32_t>(this));

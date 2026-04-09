@@ -73,6 +73,8 @@
 [[maybe_unused]] __attribute__((section(".dma_pool"))) static uint8_t dmaRxBuf[VisionCommSrvc::RX_BUFFER_SIZE];
 uint8_t dmaTxBuf[0x100];
 
+uint32_t shootDataSeq = 0;
+
 /* ------- application attribute -------------------------------------------------------------------------------------*/
 
 #define APPLICATION_ENABLE     true
@@ -213,8 +215,8 @@ void VisionCommSrvc::sendTxFrame() {
 
     RefereeDataHub::instance().shootData.read(shootData);
 
-    uint16_t len = snprintf(reinterpret_cast<char*>(dmaTxBuf), sizeof(dmaTxBuf), "从裁判系统中获得初速:%dmm/s\n",
-                            shootData.initialSpeed * 1000);
+    uint16_t len = snprintf(reinterpret_cast<char*>(dmaTxBuf), sizeof(dmaTxBuf), "弹速更新计数:%u, 初速:%dmm/s\n",
+                            shootDataSeq, (uint16_t)shootData.initialSpeed * 1000);
     tud_cdc_write(dmaTxBuf, len);
     tud_cdc_write_flush();
 

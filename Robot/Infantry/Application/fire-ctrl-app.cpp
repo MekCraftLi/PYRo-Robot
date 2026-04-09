@@ -40,6 +40,9 @@ volatile struct SpeedDebugOzone {
     uint8_t physical_shot;    // 物理发弹脉冲
 } g_speed_debug;
 debug_trigger_t debug_trigger;
+
+// 弹速闭环补偿开关 (Ozone/调试器运行时可写，置 false 直接旁路 SpeedCompensator)
+volatile bool g_enable_speed_compensation = false;
 /* -------- 应用属性 -------------------------------------------------------------------------------------------------- */
 
 #define APPLICATION_ENABLE     true
@@ -84,8 +87,10 @@ void FireCtrlApp::run() {
         c2gData.msg.shooter17mmBarrelHeat, c2gData.msg.heatLimit,
         c2gData.msg.coolingRate, nowMs);
 
-    // ── 2b. 喂弹速补偿器 ──
-    _ctx.speedCompensator.update(shootData.initialSpeed);
+    // ── 2b. 喂弹速补偿器 (关闭时跳过，防止后台累积) ──
+    if (g_enable_speed_compensation) {
+        _ctx.speedCompensator.update(shootData.initialSpeed);
+    }
 
     // ── 2c. 本地冷却推演 ──
     _ctx.heatController.tickCooling(dt);
@@ -103,10 +108,6 @@ void FireCtrlApp::run() {
     debug_trigger.state = (uint8_t)_ctx.state;
     debug_trigger.offset = _ctx.triggerOffset;
 
-    // 防抖: 差距过大 (如刚开机 / 校准后) → 直接对齐
-    // if (std::abs(currentContinuousEcd - lastShotContinuousEcd) > ECD_PER_BULLET * 10) {
-    //     lastShotContinuousEcd = currentContinuousEcd;
-    // }
 
     if (_ctx.rawTriggerEcd - lastShotContinuousEcd >= ECD_PER_BULLET) {
         _ctx.heatController.recordBulletShot(nowMs);
@@ -167,7 +168,9 @@ void FireCtrlApp::updateTransientEvent() {
  */
 void FireCtrlApp::calculateCurrents(BoosterOutput& out) {
     // ── 摩擦轮: 弹速闭环补偿 ──
-    float finalFricTargetSpeed = _ctx.speedCompensator.getCompensatedRadPerSec(_ctx.targetFricSpeed);
+    float finalFricTargetSpeed = g_enable_speed_compensation
+        ? _ctx.speedCompensator.getCompensatedRadPerSec(_ctx.targetFricSpeed)
+        : _ctx.targetFricSpeed;
 
     g_speed_debug.base_fric_target  = _ctx.targetFricSpeed;
     g_speed_debug.final_fric_target = finalFricTargetSpeed;

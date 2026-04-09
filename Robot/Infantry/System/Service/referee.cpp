@@ -39,6 +39,8 @@
 #include "Config/Chassis/hw-config.h"
 #include "System/DataHub/referee-data-hub.h"
 #include "System/DataHub/referee-protocol.h"
+#include "commander.h"
+#include "pyro_bsp_uart.h"
 #include "tools/crc.h"
 
 /* II. other application */
@@ -72,7 +74,7 @@
 
 [[maybe_unused]] static auto& forceInit = RefereeSrvc::instance();
 
-__attribute__((section(".dma_pool"))) static uint8_t usart1RxBuf[128];
+__attribute__((section(".dma_pool"))) static uint8_t usart1RxBuf[RefereeSrvc::RX_BUFFER_SIZE];
 
 
 // =========================================================================
@@ -80,18 +82,17 @@ __attribute__((section(".dma_pool"))) static uint8_t usart1RxBuf[128];
 // 【警告】：这里的元素必须严格按照 CMD_ID 从小到大升序排列，以支持二分查找！
 // =========================================================================
 const RefereeSrvc::CmdMapItem RefereeSrvc::_handlerRegistry[] = {
-    REGISTER_SIMPLE_HANDLER(0x0001, RMGameStatus,          gameStatus),
-    REGISTER_SIMPLE_HANDLER(0x0101, RMEventData,           eventData),
-    REGISTER_SIMPLE_HANDLER(0x0104, RMRefereeWarning,      warningData),
-    REGISTER_SIMPLE_HANDLER(0x0201, RMRobotStatus,         robotStatus),
-    REGISTER_SIMPLE_HANDLER(0x0202, RMPowerHeatData,       powerHeat),
-    REGISTER_SIMPLE_HANDLER(0x0206, RMHurtData,            hurtData),
-    REGISTER_SIMPLE_HANDLER(0x0207, RMShootData,           shootData),
+    REGISTER_SIMPLE_HANDLER(0x0001, RMGameStatus, gameStatus),
+    REGISTER_SIMPLE_HANDLER(0x0101, RMEventData, eventData),
+    REGISTER_SIMPLE_HANDLER(0x0104, RMRefereeWarning, warningData),
+    REGISTER_SIMPLE_HANDLER(0x0201, RMRobotStatus, robotStatus),
+    REGISTER_SIMPLE_HANDLER(0x0202, RMPowerHeatData, powerHeat),
+    REGISTER_SIMPLE_HANDLER(0x0206, RMHurtData, hurtData),
+    REGISTER_SIMPLE_HANDLER(0x0207, RMShootData, shootData),
     REGISTER_SIMPLE_HANDLER(0x0208, RMProjectileAllowance, projectileAllowance),
 
     // 对于复杂的自定义交互包，指向专门的静态处理函数
-    {0x0301, RefereeSrvc::handleInteractionData}
-};
+    {0x0301, RefereeSrvc::handleInteractionData}};
 
 // 编译期自动计算表的大小
 const size_t RefereeSrvc::_registrySize = sizeof(_handlerRegistry) / sizeof(_handlerRegistry[0]);
@@ -133,7 +134,15 @@ RefereeSrvc::RefereeSrvc()
 
 void RefereeSrvc::init() {
     /* driver object initialize */
+    pyro::bsp_uart::get_uart1().add_rx_event_callback(
+        [this](uint8_t* p, uint16_t size, BaseType_t&) -> bool {
+            onUartRxEventCallback(size);
+            return true;
+        },
+        reinterpret_cast<uint32_t>(this));
+    CommanderSrvc::instance().waitInit();
 
+    memset(usart1RxBuf, 0, sizeof(usart1RxBuf));
     HAL_UARTEx_ReceiveToIdle_DMA(&Config::Hardware::Comms::REFEREE_SYSTEM_UART, usart1RxBuf, sizeof(usart1RxBuf));
 }
 
@@ -212,10 +221,11 @@ void RefereeSrvc::parseFrame(const uint8_t* frame, uint16_t length) {
 // 核心分发器：基于二分查找的 O(log N) 极速分发
 // =========================================================================
 void RefereeSrvc::dispatchCommand(uint16_t cmdId, const uint8_t* data, uint16_t length) {
-    if (data == nullptr || length == 0) return;
+    if (data == nullptr || length == 0)
+        return;
 
     // 标准二分查找算法 (取代了底层的 O(N) switch-case 跳表)
-    int left = 0;
+    int left  = 0;
     int right = _registrySize - 1;
 
     while (left <= right) {
@@ -241,9 +251,10 @@ void RefereeSrvc::dispatchCommand(uint16_t cmdId, const uint8_t* data, uint16_t 
 // 复杂协议的专属处理逻辑
 // =========================================================================
 void RefereeSrvc::handleInteractionData(const uint8_t* data, uint16_t length) {
-    if (length < sizeof(RMInteractionHeader)) return;
+    if (length < sizeof(RMInteractionHeader))
+        return;
 
-    auto* header = reinterpret_cast<const RMInteractionHeader*>(data);
+    auto* header           = reinterpret_cast<const RMInteractionHeader*>(data);
     const uint8_t* payload = data + sizeof(RMInteractionHeader);
 
     switch (header->dataCmdId) {
