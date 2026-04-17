@@ -15,12 +15,16 @@
  *   - Writes: targetFricSpeed, useTriggerSpeedLoopOnly, state
  */
 
-#include "fire-ctrl-app.h"
 #include "Config/Gimbal/hw-config.h"
+#include "fire-ctrl-app.h"
+#include "referee-data-hub.h"
+#include "referee-protocol.h"
 
 void FireCtrlApp::StateSpinUp::enter(FireCtrlCtx* ctx) {
+    RMRobotStatus status{};
+    RefereeDataHub::instance().robotStatus.read(status);
     // --- 设定摩擦轮目标 ---
-    ctx->targetFricSpeed         = Config::Hardware::MotorTopo::FRIC_TARGET_SPEED;
+    ctx->targetFricSpeed         =  ((status.chassisPowerLimit - 50) * ((float)(25 - 21) / 70) + 21.0) / 0.03 * 0.85f;
     ctx->useTriggerSpeedLoopOnly = false;
     ctx->state                   = FireState::SpinUp;
 }
@@ -34,8 +38,8 @@ void FireCtrlApp::StateSpinUp::execute(FireCtrlCtx* ctx) {
     }
 
     // --- 启动完成检测: 双摩擦轮速度均接近目标 ---
-    if (std::abs(ctx->fdb.fric[0].vel - ctx->targetFricSpeed) < 0.1f &&
-        std::abs(ctx->fdb.fric[1].vel + ctx->targetFricSpeed) < 0.1f) {
+    if (std::abs(ctx->fdb.fric[0].vel - ctx->targetFricSpeed) < 10 &&
+        std::abs(ctx->fdb.fric[1].vel + ctx->targetFricSpeed) < 10) {
         request_switch(&instance()._stateReady);
     }
 }

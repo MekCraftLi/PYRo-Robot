@@ -58,11 +58,11 @@ static StackType_t appStack[APPLICATION_STACK_SIZE];
 
 FireCtrlApp::FireCtrlApp()
     : PeriodicApp(APPLICATION_ENABLE, APPLICATION_NAME, APPLICATION_STACK_SIZE, appStack, APPLICATION_PRIORITY, 1),
-      _ctx() {}
+      ctx() {}
 
 void FireCtrlApp::init() {
     _fsm.change_state(&_statePassive);
-    _fsm.enter(&_ctx);
+    _fsm.enter(&ctx);
 }
 
 /* -------- 主循环 ---------------------------------------------------------------------------------------------------- */
@@ -73,8 +73,8 @@ void FireCtrlApp::run() {
 
     // ── 1. 读取黑板输入 ──
     ChassisToGimbalComm c2gData{};
-    Blackboard::instance().shootCmd.read(_ctx.cmd);
-    Blackboard::instance().boosterState.read(_ctx.fdb);
+    Blackboard::instance().shootCmd.read(ctx.cmd);
+    Blackboard::instance().boosterState.read(ctx.fdb);
     Blackboard::instance().c2gComm.read(c2gData);
     RMShootData shootData{};
 
@@ -83,34 +83,34 @@ void FireCtrlApp::run() {
     uint32_t nowMs = xTaskGetTickCount();
 
     // ── 2a. 同步裁判系统 → 热量控制器 ──
-    _ctx.heatController.syncWithReferee(
+    ctx.heatController.syncWithReferee(
         c2gData.msg.shooter17mmBarrelHeat, c2gData.msg.heatLimit,
         c2gData.msg.coolingRate, nowMs);
 
     // ── 2b. 喂弹速补偿器 (关闭时跳过，防止后台累积) ──
     if (g_enable_speed_compensation) {
-        _ctx.speedCompensator.update(shootData.initialSpeed);
+        ctx.speedCompensator.update(shootData.initialSpeed);
     }
 
     // ── 2c. 本地冷却推演 ──
-    _ctx.heatController.tickCooling(dt);
+    ctx.heatController.tickCooling(dt);
 
     // ── 2d. 物理发弹检测 (编码器跨越一发跨度 → 注册热量) ──
     const int32_t ECD_PER_BULLET = 8192 * 36 / 8; // M2006 单发编码器跨度 (36864)
 
-    _ctx.rawTriggerEcd = _ctx.fdb.triggerEcd + _ctx.fdb.triggerRound * 8192;
-    _ctx.currentTriggerEcd = (_ctx.rawTriggerEcd - _ctx.triggerOffset + 8192 * 36) % (8192 * 36); // 当前编码器位置 (连续值 - 校准偏移, 模拟 36 周)
+    ctx.rawTriggerEcd = ctx.fdb.triggerEcd + ctx.fdb.triggerRound * 8192;
+    ctx.currentTriggerEcd = (ctx.rawTriggerEcd - ctx.triggerOffset + 8192 * 36) % (8192 * 36); // 当前编码器位置 (连续值 - 校准偏移, 模拟 36 周)
     static int32_t lastShotContinuousEcd;
-    lastShotContinuousEcd = _ctx.rawTriggerEcd;
+    lastShotContinuousEcd = ctx.rawTriggerEcd;
 
-    debug_trigger.currentTrigger = _ctx.currentTriggerEcd;
-    debug_trigger.targetTrigger = _ctx.targetTriggerEcd;
-    debug_trigger.state = (uint8_t)_ctx.state;
-    debug_trigger.offset = _ctx.triggerOffset;
+    debug_trigger.currentTrigger = ctx.currentTriggerEcd;
+    debug_trigger.targetTrigger = ctx.targetTriggerEcd;
+    debug_trigger.state = (uint8_t)ctx.state;
+    debug_trigger.offset = ctx.triggerOffset;
 
 
-    if (_ctx.rawTriggerEcd - lastShotContinuousEcd >= ECD_PER_BULLET) {
-        _ctx.heatController.recordBulletShot(nowMs);
+    if (ctx.rawTriggerEcd - lastShotContinuousEcd >= ECD_PER_BULLET) {
+        ctx.heatController.recordBulletShot(nowMs);
         lastShotContinuousEcd += ECD_PER_BULLET;
         g_heat_debug.physical_shot  = 50;
         g_speed_debug.physical_shot = 50;
@@ -123,18 +123,18 @@ void FireCtrlApp::run() {
     updateTransientEvent();
 
     // ── 4. 驱动 FSM (状态机内部仅设定目标角度/速度, 不涉及 PID) ──
-    _fsm.execute(&_ctx);
+    _fsm.execute(&ctx);
 
     // ── 5. 统一 PID 计算输出电流 ──
     BoosterOutput finalOut{};
     calculateCurrents(finalOut);
 
     // ── 6a. Ozone 探针赋值 ──
-    g_heat_debug.local_heat       = _ctx.heatController.getLocalHeat();
+    g_heat_debug.local_heat       = ctx.heatController.getLocalHeat();
     g_heat_debug.referee_heat     = c2gData.msg.shooter17mmBarrelHeat;
     g_heat_debug.heat_limit       = c2gData.msg.heatLimit;
     g_heat_debug.safe_margin_line = c2gData.msg.heatLimit - HeatController::SAFE_MARGIN;
-    g_heat_debug.target_rpm       = _ctx.targetTriggerSpeed;
+    g_heat_debug.target_rpm       = ctx.targetTriggerSpeed;
     g_speed_debug.ref_bullet_speed    = (float)c2gData.msg.initialSpeedX100 / 100.0f;
     g_speed_debug.target_bullet_speed = 23.5f;
 
@@ -149,10 +149,10 @@ void FireCtrlApp::run() {
  *         瞬态事件仅存活 1 tick, 下次调用自动归零.
  */
 void FireCtrlApp::updateTransientEvent() {
-    _ctx.transientEvent = ShootEvent::NONE;
-    if (_ctx.cmd.event != _lastEvent) {
-        _ctx.transientEvent = _ctx.cmd.event;
-        _lastEvent          = _ctx.cmd.event;
+    ctx.transientEvent = ShootEvent::NONE;
+    if (ctx.cmd.event != _lastEvent) {
+        ctx.transientEvent = ctx.cmd.event;
+        _lastEvent          = ctx.cmd.event;
     }
 }
 
@@ -169,26 +169,26 @@ void FireCtrlApp::updateTransientEvent() {
 void FireCtrlApp::calculateCurrents(BoosterOutput& out) {
     // ── 摩擦轮: 弹速闭环补偿 ──
     float finalFricTargetSpeed = g_enable_speed_compensation
-        ? _ctx.speedCompensator.getCompensatedRadPerSec(_ctx.targetFricSpeed)
-        : _ctx.targetFricSpeed;
+        ? ctx.speedCompensator.getCompensatedRadPerSec(ctx.targetFricSpeed)
+        : ctx.targetFricSpeed;
 
-    g_speed_debug.base_fric_target  = _ctx.targetFricSpeed;
+    g_speed_debug.base_fric_target  = ctx.targetFricSpeed;
     g_speed_debug.final_fric_target = finalFricTargetSpeed;
-    g_speed_debug.comp_integration  = finalFricTargetSpeed - _ctx.targetFricSpeed;
-    g_speed_debug.fric_left_real    = _ctx.fdb.fric[(uint8_t)Config::Hardware::MotorTopo::FRIC_LEFT_ID].vel;
+    g_speed_debug.comp_integration  = finalFricTargetSpeed - ctx.targetFricSpeed;
+    g_speed_debug.fric_left_real    = ctx.fdb.fric[(uint8_t)Config::Hardware::MotorTopo::FRIC_LEFT_ID].vel;
 
     // 左摩擦轮
     out.fricLeftCurrent = _fricLeftSpdPid.calculate(
         finalFricTargetSpeed,
-        _ctx.fdb.fric[(uint8_t)Config::Hardware::MotorTopo::FRIC_LEFT_ID].vel);
+        ctx.fdb.fric[(uint8_t)Config::Hardware::MotorTopo::FRIC_LEFT_ID].vel);
 
     // 右摩擦轮 (反向安装, 目标取反)
     out.fricRightCurrent = _fricRightSpdPid.calculate(
         -finalFricTargetSpeed,
-        _ctx.fdb.fric[(uint8_t)Config::Hardware::MotorTopo::FRIC_RIGHT_ID].vel);
+        ctx.fdb.fric[(uint8_t)Config::Hardware::MotorTopo::FRIC_RIGHT_ID].vel);
 
     // ── 拨弹盘 ──
-    if (_ctx.targetFricSpeed < 10.0f) {
+    if (ctx.targetFricSpeed < 10.0f) {
         // 安全模式: 摩擦轮未启动 → 彻底断开拨弹盘动力
         out.triggerCurrent = 0.0f;
         _triggerPosPid.clear();
@@ -198,15 +198,15 @@ void FireCtrlApp::calculateCurrents(BoosterOutput& out) {
 
     float spdTarget = 0.0f;
 
-    if (_ctx.useTriggerSpeedLoopOnly) {
+    if (ctx.useTriggerSpeedLoopOnly) {
         // 纯速度环 (连发 / 校准反转)
-        spdTarget = _ctx.targetTriggerSpeed;
+        spdTarget = ctx.targetTriggerSpeed;
     } else {
         // 位置外环 → 速度内环 (单发 / 就绪锁位)
-        float targetTriggerAngle = (float)(_ctx.targetTriggerEcd) / (float)(8192 * 36) * 2 * M_PI;
+        float targetTriggerAngle = (float)(ctx.targetTriggerEcd) / (float)(8192 * 36) * 2 * M_PI;
 
 
-        float realTriggerAngle = (float)(_ctx.currentTriggerEcd) / (float)(8192 * 36) * 2 * M_PI;
+        float realTriggerAngle = (float)(ctx.currentTriggerEcd) / (float)(8192 * 36) * 2 * M_PI;
 
         float err = targetTriggerAngle - realTriggerAngle;
         while (err >  M_PI) err -= 2.0f * M_PI;
@@ -216,11 +216,11 @@ void FireCtrlApp::calculateCurrents(BoosterOutput& out) {
     }
 
     // 速度内环 → 电流
-    out.triggerCurrent = _triggerSpdPid.calculate(spdTarget, _ctx.fdb.trigger.vel);
+    out.triggerCurrent = _triggerSpdPid.calculate(spdTarget, ctx.fdb.trigger.vel);
 }
 
 /* -------- 访问器 ---------------------------------------------------------------------------------------------------- */
 
 FireCtrlApp::FireState FireCtrlApp::getFireState() {
-    return _ctx.state;
+    return ctx.state;
 }

@@ -98,6 +98,14 @@ struct VisionRxFrame {
     uint16_t        crc16;
 };
 
+struct shootDataDebug {
+    float initialSpeed;
+    float fircTgt;
+    float fircFdb;
+    float trigSpd;
+    float trigtrq;
+};
+
 #pragma pack(pop)
 
 

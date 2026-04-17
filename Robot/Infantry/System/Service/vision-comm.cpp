@@ -35,6 +35,9 @@
 /* I. header */
 
 #include "vision-comm.h"
+
+#include "fire-ctrl-app.h"
+
 #include <cstdio>
 
 #include "Config/Gimbal/hw-config.h"
@@ -211,13 +214,26 @@ void VisionCommSrvc::sendTxFrame() {
         tud_cdc_write_clear();
     }
 
-    RMShootData shootData{};
+    RMShootData data{};
+    RefereeDataHub::instance().shootData.read(data);
 
-    RefereeDataHub::instance().shootData.read(shootData);
 
-    uint16_t len = snprintf(reinterpret_cast<char*>(dmaTxBuf), sizeof(dmaTxBuf), "弹速更新计数:%u, 初速:%dmm/s\n",
-                            shootDataSeq, (uint16_t)shootData.initialSpeed * 1000);
-    tud_cdc_write(dmaTxBuf, len);
+   shootDataDebug debug{
+        .initialSpeed = data.initialSpeed,
+        .fircTgt = FireCtrlApp::instance().ctx.targetFricSpeed,
+        .fircFdb = FireCtrlApp::instance().ctx.fdb.fric[0].vel,
+        .trigSpd = FireCtrlApp::instance().ctx.fdb.trigger.vel,
+        .trigtrq = FireCtrlApp::instance().ctx.fdb.trigger.torque,
+    };
+
+    debug.fircTgt *= 0.03;
+
+    memcpy(dmaTxBuf+1, &debug, sizeof(shootDataDebug));
+
+    dmaTxBuf[0] = 0xA5;
+    dmaTxBuf[sizeof(shootDataDebug)+1] = '\n';
+
+    tud_cdc_write(dmaTxBuf, sizeof(shootDataDebug) + 2);
     tud_cdc_write_flush();
 
     //

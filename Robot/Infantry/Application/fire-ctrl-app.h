@@ -108,6 +108,8 @@ class FireCtrlApp final : public PeriodicApp, public Singleton<FireCtrlApp> {
         FireState targetStateAfterCali = FireState::Ready; // 校准完成后目标状态 (由 CaliReverse 决定)
     };
 
+    FireCtrlCtx ctx;
+
     // -------------------------------------------
     // FSM 状态类声明
     // -------------------------------------------
@@ -176,7 +178,7 @@ class FireCtrlApp final : public PeriodicApp, public Singleton<FireCtrlApp> {
 
     // --- FSM ---
     pyro::fsm_t<FireCtrlCtx> _fsm;
-    FireCtrlCtx _ctx;
+
 
     // --- 状态单例 ---
     StatePassive   _statePassive;
@@ -190,9 +192,9 @@ class FireCtrlApp final : public PeriodicApp, public Singleton<FireCtrlApp> {
     StateJamClear  _stateJamClear;
 
     // --- PID 控制器 ---
-    pyro::pid_t _fricLeftSpdPid  = pyro::pid_t(0.22f, 0.0f, 0.0f, 0.0f, 20.0f);
-    pyro::pid_t _fricRightSpdPid = pyro::pid_t(0.22f, 0.0f, 0.0f, 0.0f, 20.0f);
-    pyro::pid_t _triggerPosPid   = pyro::pid_t(1000.0f, 0.0f, 0.0f, 100.0f, 1000.0f);
+    pyro::pid_t _fricLeftSpdPid  = pyro::pid_t(0.3f, 0.0f, 0.0f, 0.0f, 20.0f);
+    pyro::pid_t _fricRightSpdPid = pyro::pid_t(0.3f, 0.0f, 0.0f, 0.0f, 20.0f);
+    pyro::pid_t _triggerPosPid   = pyro::pid_t(1000.0f, 0.5f, 0.0f, 100.0f, 1000.0f);
     pyro::pid_t _triggerSpdPid   = pyro::pid_t(0.05f, 0.02f, 0.0f, 5.0f, 20.0f);
 
     ShootEvent _lastEvent = ShootEvent::NONE;
